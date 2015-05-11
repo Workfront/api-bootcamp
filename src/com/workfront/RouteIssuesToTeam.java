@@ -12,7 +12,9 @@ import java.util.Map;
 public class RouteIssuesToTeam {
 
 	//All of these will depend on the environment
-	public static final String PRODUCT_AREA = "DE:Product Area";
+	public static final String WORKFRONT_URL_V4 = "https://leapco.attask-ondemand.com/attask/api/v4.0";
+	public static final String API_KEY = "r44o0uldiz5ub9u4af6ieymkxfruuepi";
+	public static final String PRODUCT_AREA_FIELD = "DE:Product Area";
 	public static final String SOFTWARE_TICKET_CATEGORY_ID = "1586d59dcb97400ae0533365290ac8b8";
 	public static final String WORKSTATION_REQUESTS_ID = "1586d59dc388400ae0533365290ac8b8";
 	public static final String DEVELOPMENT_PRODUCT_BACKLOG_ID = "1586d59dc376400ae0533365290ac8b8";
@@ -21,7 +23,9 @@ public class RouteIssuesToTeam {
 
 	/**
 	 * The purpose of this class is to route incoming issues to the proper team and convert them into tasks
-	 * on their backlog.  These issues are categorized by product ownership since the groups are separated
+	 * on their backlog.  We will mark the incoming issues as resolved by our new tasks on the backlog and
+	 * leave an update on the update stream for the issue that it will be completed by our new task.
+	 * These issues are categorized by product ownership since the groups are separated
 	 * across multiple products.  This task will require additional setup in workfront.
 	 *
 	 * So to recap, the requirements are:
@@ -32,30 +36,30 @@ public class RouteIssuesToTeam {
 	 * 2. Either alter an existing request queue or create a new request queue to take this new value as an option.
 	 *
 	 * In this class
-	 * 3. Find all issues that come in through this queue and have a Product Area set and convert them to a task
-	 *    on the "Development Product Backlog" project.
+	 * 3. Find all issues that come in through this queue and have a Product Area set and are not resolved by another
+	 *    object and convert them to a task on the "Development Product Backlog" project.
 	 * 4. If the value is "User Management" or "Calendars" or "Document Management", ensure it shows up on the
 	 *    Jedi Council team's backlog.
 	 * 	  If the value is "All The Rest," ensure it shows up on the Gryffindore backlog.
+	 * 5. Update the issue with a message that the work will be done in a task and reference the task ID.
+	 * 6. Set the issue to be resolved by the new Task.
 	 *
 	 * @param args
 	 */
 	public static void main(String[] args) {
 
 		try {
-			StreamClient client = new StreamClient("https://leapco.attask-ondemand.com/attask/api/v4.0");
-			client.login("marci@leapco.attask", "Pa55word");
+			StreamClient client = new StreamClient(WORKFRONT_URL_V4, API_KEY);
 
-			//find all issues with our category - we want to narrow the scope to the project issues land on
-			//  as well as issues that have our form set and our field populated ignoring everything else.
-			//  This should perform well because we have used 2 primary keys (IDs) even as our data grows.
-			//TODO: fix this
+			//find all issues with our category - we want to narrow the scope to the project these issues land on
+			//as well as issues that are not already resolved by a task.
+			//This should perform well because we have used 2 primary keys (IDs) even as our data grows.
 			Map<String, Object> search = new HashMap<>();
 			search.put("projectID", WORKSTATION_REQUESTS_ID);
 			search.put("categoryID", SOFTWARE_TICKET_CATEGORY_ID);
-			search.put("statusEquatesWith", "CPL");
-			search.put("statusEquatesWith_Mod", "ne");
+			search.put("resolvingObjID_Mod", "isnull");
 
+			//We will need to fetch the fields we want to copy in this search like the description
 			JSONArray issues = client.search("OPTASK", search,
 					new HashSet<>(Arrays.asList("parameterValues", "description")));
 
@@ -63,12 +67,11 @@ public class RouteIssuesToTeam {
 				JSONObject issue = issues.getJSONObject(i);
 
 				//Ignore issues without the value set that we care about
-				if (issue.getJSONObject("parameterValues") != null
-						&& issue.getJSONObject("parameterValues").has(PRODUCT_AREA)) {
+				if (issue.has("parameterValues") && issue.getJSONObject("parameterValues").has(PRODUCT_AREA_FIELD)) {
 
-					//Figure out which team this belongs to
+					//Figure out which team this belongs to so it shows up on the proper backlog
 					String teamID = JEDI_COUNCIL_ID;
-					if (!"All The Rest".equals(issue.getJSONObject("parameterValues").get(PRODUCT_AREA))) {
+					if (!"All The Rest".equals(issue.getJSONObject("parameterValues").get(PRODUCT_AREA_FIELD))) {
 						teamID = GRYFFINDORE_ID;
 					}
 
@@ -82,24 +85,22 @@ public class RouteIssuesToTeam {
 
 					JSONObject newTask = client.post("TASK", message);
 
-					//Mark the issue complete and reference new task in update stream
-					//TODO: debug this bad boy
-//					message.clear();
-//					message.put("notText", "This has been converted to task: " + newTask.get("ID"));
-//					message.put("optaskID", issue.get("ID"));
-//					client.post("NOTE", message);
-//
-//					message.clear();
-//					message.put("status", "CPL");
-//					client.put("OPTASK", issue.getString("ID"), message);
+					//Reference new task in update stream
+					message.clear();
+					message.put("noteText", "This has been converted to task: " + newTask.get("ID"));
+					message.put("objID", issue.get("ID"));
+					message.put("noteObjCode", "OPTASK");
+					client.post("NOTE", message);
+
+					//Mark the issue as resolved by our new task
+					message.clear();
+					message.put("resolvingObjID", newTask.get("ID"));
+					message.put("resolvingObjCode", "TASK");
+					client.put("OPTASK", issue.get("ID").toString(), message);
 				}
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-
-
-		//write your solution here
-		//TODO: Joe
 	}
 }

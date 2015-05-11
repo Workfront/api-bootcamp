@@ -1,5 +1,4 @@
 package com.workfront.api;
-
 /*
  * Copyright (c) 2011 AtTask, Inc.
  *
@@ -20,12 +19,8 @@ package com.workfront.api;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
+import java.io.*;
+import java.net.ConnectException;
 import java.util.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -52,10 +47,16 @@ public class StreamClient {
 	};
 
 	private String hostname;
+	private String apiKey;
 	private String sessionID;
 
 	public StreamClient (String hostname) {
 		this.hostname = hostname;
+	}
+
+	public StreamClient (String hostname, String apiKey) {
+		this.hostname = hostname;
+		this.apiKey = apiKey;
 	}
 
 	public JSONObject login (String username, String password) throws StreamClientException {
@@ -77,6 +78,15 @@ public class StreamClient {
 		}
 	}
 
+	public JSONObject uploadUrl(String url) throws StreamClientException {
+		Map<String, Object> query = new HashMap<String, Object>();
+		query.put("uri",url);
+		return (JSONObject) request("/upload",query, null, METH_GET);
+	}
+
+	public JSONObject export (Map<String, Object> query) throws StreamClientException {
+		return (JSONObject) request("/", query, null, METH_GET);
+	}
 	public JSONArray search (String objCode, Map<String, Object> query) throws StreamClientException {
 		return search(objCode, query, (Set<String>) null);
 	}
@@ -113,6 +123,11 @@ public class StreamClient {
 		return (JSONObject) request("/"+objCode, message, fields, METH_POST);
 	}
 
+	public JSONObject post (String objCode, Map<String, Object> params, Map<String, Object> updates, Set<String> fields) throws StreamClientException {
+		params.put("updates", new JSONObject(updates).toString());
+		return (JSONObject) request("/"+objCode, params, fields, METH_POST);
+	}
+
 	public JSONObject put (String objCode, String objID, Map<String, Object> message) throws StreamClientException {
 		return put(objCode, objID, message, (Set<String>) null);
 	}
@@ -123,10 +138,14 @@ public class StreamClient {
 
 	public JSONObject put (String objCode, String objID, Map<String, Object> message, Set<String> fields) throws StreamClientException {
 		Map<String, Object> params = new HashMap<String, Object>();
-		params.put("updates", new JSONObject(message).toString());
+		return put(objCode,objID,params,message,fields);
+	}
+
+	public JSONObject put (String objCode, String objID, Map<String, Object> params, Map<String, Object> updates, Set<String> fields) throws StreamClientException {
+		params.put("updates", new JSONObject(updates).toString());
 		return (JSONObject) request("/"+objCode+"/"+objID, params, fields, METH_PUT);
 	}
-	
+
 	public boolean delete (String objCode, String objID) throws StreamClientException {
 		return delete(objCode, objID, false);
 	}
@@ -143,15 +162,35 @@ public class StreamClient {
 		}
 	}
 
-	private Object request (String path, Map<String, Object> params, Set<String> fields, String method) throws StreamClientException {
+    private Object request (String path, Map<String, Object> params, Set<String> fields, String method) throws StreamClientException {
+        return request(path, params, fields, method, 0);
+    }
+
+	private Object request (String path, Map<String, Object> params, Set<String> fields, String method, int retryCount) throws StreamClientException {
 		HttpURLConnection conn = null;
+        int responseCode = -1;
 
 		try {
-			String query = "sessionID=" + sessionID + "&method=" + method;
+			String authenticationParam = "";
+			if (apiKey != null) {
+				authenticationParam += "apiKey=" + apiKey;
+			} else if (sessionID  != null) {
+				authenticationParam += "sessionID=" + sessionID;
+			}
+			String methodParam = "method=" + method;
+			String query = authenticationParam + "&" + methodParam;
 
 			if (params != null) {
 				for (String key : params.keySet()) {
-					query += "&" + URLEncoder.encode(key, "UTF-8") + "=" + URLEncoder.encode(String.valueOf(params.get(key)), "UTF-8");
+					if (params.get(key) instanceof String[]) {
+						String[] paramVal = (String[]) params.get(key);
+						for (int i = 0; i < paramVal.length; i++) {
+							String val = paramVal[i];
+							query += "&" + URLEncoder.encode(key, "UTF-8") + "=" + URLEncoder.encode(val, "UTF-8");
+						}
+					} else {
+						query += "&" + URLEncoder.encode(key, "UTF-8") + "=" + URLEncoder.encode(String.valueOf(params.get(key)), "UTF-8");
+					}
 				}
 			}
 
@@ -162,7 +201,7 @@ public class StreamClient {
 				}
 				query = query.substring(0, query.lastIndexOf(","));
 			}
-			
+
 			conn = createConnection(hostname + path, method);
 
 			// Send request
@@ -170,6 +209,9 @@ public class StreamClient {
 			out.write(query);
 			out.flush();
 			out.close();
+
+            // Get response code
+            responseCode = conn.getResponseCode();
 
 			// Read response
 			BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
@@ -202,14 +244,47 @@ public class StreamClient {
 			}
 
 			return result.get("data");
-		}
-		catch (Exception e) {
+        } catch(ConnectException connectException) {
+            throw new StreamClientException("Unable to connect to " + hostname + path);
+		} catch (IOException e) {
+			//getErrorStream() can return null if no error data was sent back
+            if (conn.getErrorStream() != null) {
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+                try {
+                    copyStream(conn.getErrorStream(), out);
+                } catch (IOException e1) {
+                    // Removed printStackTrace call
+                }
+
+                throw new StreamClientException(new String(out.toByteArray()));
+            } else {
+                //I believe this use case happens when the we are sending to many requests at one time...
+                if (retryCount < 3) {
+                    return request(path, params, fields, method, ++retryCount);
+                } else {
+                    throw new StreamClientException("An error happened but no error data was sent... 3 time... Response Code = " + responseCode);
+                }
+            }
+		} catch (Exception e) {
 			throw new StreamClientException(e);
-		}
-		finally {
+		} finally {
 			if (conn != null) {
 				conn.disconnect();
 			}
+		}
+	}
+
+	private void copyStream(InputStream in, OutputStream out) throws IOException {
+		try {
+			byte[] buffer = new byte[8192];
+			int count;
+			while ((count = in.read(buffer)) != -1) {
+				out.write(buffer, 0, count);
+			}
+		} finally {
+			in.close();
+			out.close();
 		}
 	}
 
@@ -227,9 +302,7 @@ public class StreamClient {
 		conn.setUseCaches(false);
 		conn.setConnectTimeout(60000);
 		conn.setReadTimeout(300000);
-		conn.connect();
 
 		return conn;
 	}
-
 }
