@@ -8,6 +8,18 @@ import java.util.*;
 
 public class OverdueTasks {
 
+    static final String WORKFRONT_URL_V4 = "https://leapco.attask-ondemand.com/attask/api/v4.0";
+    static final String API_KEY = "r44o0uldiz5ub9u4af6ieymkxfruuepi";
+    //    Keeping credentials so that I know the credentials to the on demand account
+    //    static final String USERNAME = "marci@leapco.attask";
+    //    static final String PASSWORD = "Pa55word";
+
+    // TODO: I am not sure which program we want to use ... but should probably name one of them a little bit better
+    static final String DEV_PROGRAM_ID = "5550f476000176606f6de06eb1f09365";
+    static final String PLANNED_COMPLETION_DATE = "plannedCompletionDate";
+    static final String OVERDUE_MESSAGE = "Hello, just letting you know that this task is now overdue.";
+
+
     /**
      * The purpose of this class is to find tasks within a certain program that are overdue and
      * notify the proper [manager] via the update stream.  It is intended to run nightly so knowing that it
@@ -20,19 +32,6 @@ public class OverdueTasks {
      *
      * @param args
      */
-
-    static final String WORKFRONT_URL_V4 = "https://leapco.attask-ondemand.com/attask/api/v4.0";
-    static final String API_KEY = "r44o0uldiz5ub9u4af6ieymkxfruuepi";
-//    Keeping credentials so that I know the credentials to the on demand account
-//    static final String USERNAME = "marci@leapco.attask";
-//    static final String PASSWORD = "Pa55word";
-
-    // TODO: I am not sure which program we want to use ... but should probably name one of them a little bit better
-    static final String DEV_PROGRAM_ID = "5550f476000176606f6de06eb1f09365";
-    static final String PLANNED_COMPLETION_DATE = "plannedCompletionDate";
-    static final String OVERDUE_MESSAGE = "Hello, just letting you know that this task is now overdue.";
-
-
     public static void main(String[] args) throws StreamClientException {
 
         StreamClient client = null;
@@ -61,6 +60,7 @@ public class OverdueTasks {
                 String[] taskFields = {"ID", "assignedToID", "plannedCompletionDate"};
                 search.clear();
                 search.put("projectID", project.get("ID").toString());
+                // TODO: Add the overdue date query in the search instead of checking if older below
                 JSONArray taskList = client.search("task", search, taskFields);
 
                 // Iterate through each task and check to see if the task is overdue or not
