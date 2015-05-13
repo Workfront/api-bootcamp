@@ -60,7 +60,7 @@ public class SetDueDatesByPriority {
 			// TODO: Add into the search to only get issues that are NOT marked as complete
 			JSONArray issueList = client.search("OPTASK", search, issueFields);
 
-			for (int i=0;i<issueList.length();i++) {
+			for (int i = 0; i < issueList.length(); i++) {
 
 				JSONObject issue = issueList.getJSONObject(i);
 
@@ -70,12 +70,11 @@ public class SetDueDatesByPriority {
 					Calendar calendar = Calendar.getInstance();
 					calendar.setTime(df.parse(issue.get("entryDate").toString()));
 
-					// Only check the time every 7 days
-					int days = daysBetween(calendar.getTime(), Calendar.getInstance().getTime());
-					if (days % 7 == 0) {
-
-						switch (priority) {
-							case NONE:
+					switch (priority) {
+						case NONE:
+							// Only add update a minimum of every 7 days
+							int days = daysBetween(calendar.getTime(), Calendar.getInstance().getTime());
+							if (days % 7 == 0) {
 								// "None": Add an update asking for priority to be set
 								message.clear();
 								message.put("noteText", SET_PRIORITY_MESSAGE);
@@ -84,52 +83,54 @@ public class SetDueDatesByPriority {
 								message.put("topObjID", issue.get("ID"));
 								JSONObject newUpdate = client.post("NOTE", new HashMap<String, Object>(), message, null);
 								System.out.println("Update:  " + newUpdate.toString());
-								break;
+							}
+							break;
 
-							case LOW:
-								// "Low": 2 weeks after the creation date
-								calendar.add(Calendar.DATE, 14);
-								message.clear();
-								message.put("plannedCompletionDate", df.format(calendar.getTime()));
-								client.put("OPTASK", issue.get("ID").toString(), message);
-								break;
+						case LOW:
+							// "Low": 2 weeks after the creation date
+							calendar.add(Calendar.DATE, 14);
+							message.clear();
+							message.put("plannedCompletionDate", df.format(calendar.getTime()));
+							client.put("OPTASK", issue.get("ID").toString(), message);
+							break;
 
-							case NORMAL:
-								// "Normal": 1 week after the creation date
-								calendar.add(Calendar.DATE, 7);
-								message.clear();
-								message.put("plannedCompletionDate", df.format(calendar.getTime()));
-								client.put("OPTASK", issue.get("ID").toString(), message);
-								break;
+						case NORMAL:
+							// "Normal": 1 week after the creation date
+							calendar.add(Calendar.DATE, 7);
+							message.clear();
+							message.put("plannedCompletionDate", df.format(calendar.getTime()));
+							client.put("OPTASK", issue.get("ID").toString(), message);
+							break;
 
-							case HIGH:
-								// "High":	3 days after the creation date
-								calendar.add(Calendar.DATE, 3);
-								message.clear();
-								message.put("plannedCompletionDate", df.format(calendar.getTime()));
-								client.put("OPTASK", issue.get("ID").toString(), message);
-								break;
+						case HIGH:
+							// "High":	3 days after the creation date
+							calendar.add(Calendar.DATE, 3);
+							message.clear();
+							message.put("plannedCompletionDate", df.format(calendar.getTime()));
+							client.put("OPTASK", issue.get("ID").toString(), message);
+							break;
 
-							case URGENT:
-								// "Urgent": 1 day after the creation date
-								calendar.add(Calendar.DATE, 1);
-								message.clear();
-								message.put("plannedCompletionDate", df.format(calendar.getTime()));
-								client.put("OPTASK", issue.get("ID").toString(), message);
-								break;
-							default:
-								break;
-						}
+						case URGENT:
+							// "Urgent": 1 day after the creation date
+							calendar.add(Calendar.DATE, 1);
+							message.clear();
+							message.put("plannedCompletionDate", df.format(calendar.getTime()));
+							client.put("OPTASK", issue.get("ID").toString(), message);
+							break;
+						default:
+							break;
 					}
 				}
 			}
+
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
 			client.logout();
 		}
 	}
-	public static int daysBetween(Date d1, Date d2){
-		return (int)( (d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+
+	public static int daysBetween(Date d1, Date d2) {
+		return (int) ((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
 	}
 }
