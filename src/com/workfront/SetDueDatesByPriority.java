@@ -72,10 +72,10 @@ public class SetDueDatesByPriority {
 
 					switch (priority) {
 						case NONE:
+							// "None": Add an update asking for priority to be set
 							// Only add update a minimum of every 7 days
 							int days = daysBetween(calendar.getTime(), Calendar.getInstance().getTime());
 							if (days % 7 == 0) {
-								// "None": Add an update asking for priority to be set
 								message.clear();
 								message.put("noteText", SET_PRIORITY_MESSAGE);
 								message.put("opTaskID", issue.get("ID"));
