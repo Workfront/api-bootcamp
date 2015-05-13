@@ -20,11 +20,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import java.io.*;
-import java.net.ConnectException;
+import java.net.*;
 import java.util.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLEncoder;
 import javax.net.ssl.HostnameVerifier; // located in jsee.jar which is located in your jre/lib directory
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLSession;
@@ -45,6 +42,7 @@ public class StreamClient {
 			return true;
 		}
 	};
+	public static final String NEW_LINE = "\r\n";
 
 	private String hostname;
 	private String apiKey;
@@ -162,11 +160,21 @@ public class StreamClient {
 		}
 	}
 
+	public JSONObject upload(File file) throws StreamClientException {
+		String name = this.apiKey != null ? "apiKey" : "sessionID";
+		String value = this.apiKey != null ? this.apiKey : this.sessionID;
+		return (JSONObject) request("/upload?" + name + "=" + value, null, null, "POST", 0, file);
+	}
+
     private Object request (String path, Map<String, Object> params, Set<String> fields, String method) throws StreamClientException {
         return request(path, params, fields, method, 0);
     }
 
 	private Object request (String path, Map<String, Object> params, Set<String> fields, String method, int retryCount) throws StreamClientException {
+		return request(path, params, fields, method, retryCount, null);
+	}
+
+	private Object request (String path, Map<String, Object> params, Set<String> fields, String method, int retryCount, File file) throws StreamClientException {
 		HttpURLConnection conn = null;
         int responseCode = -1;
 
@@ -204,9 +212,22 @@ public class StreamClient {
 
 			conn = createConnection(hostname + path, method);
 
+			String boundary = Long.toHexString(System.currentTimeMillis());
+
+			if (file != null) {
+				conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+				conn.setRequestProperty("User-Agent", "Workfront Java StreamClient");
+			}
+
 			// Send request
-			Writer out = new OutputStreamWriter(conn.getOutputStream());
-			out.write(query);
+			OutputStream outputStream = conn.getOutputStream();
+			Writer out = new OutputStreamWriter(outputStream);
+			if (file != null) {
+				addFileToRequest(boundary, out, outputStream, file);
+			} else {
+				out.write(query);
+			}
+
 			out.flush();
 			out.close();
 
@@ -304,5 +325,26 @@ public class StreamClient {
 		conn.setReadTimeout(300000);
 
 		return conn;
+	}
+
+	private void addFileToRequest(String boundary, Writer out, OutputStream binaryStream, File file) throws IOException {
+		out.append("--" + boundary).append(NEW_LINE);
+		out.append("Content-Disposition: form-data; name=\"uploadedFile\"; filename=\"" + file.getName() + "\"").append(NEW_LINE);
+		out.append("Content-Type: " + URLConnection.guessContentTypeFromName(file.getName())).append(NEW_LINE);
+		out.append("Content-Transfer-Encoding: binary").append(NEW_LINE).append(NEW_LINE);
+		out.flush();
+
+		FileInputStream inputStream = new FileInputStream(file);
+		byte[] buffer = new byte[4096];
+		int bytesRead = -1;
+		while ((bytesRead = inputStream.read(buffer)) != -1) {
+			binaryStream.write(buffer, 0, bytesRead);
+		}
+		binaryStream.flush();
+		inputStream.close();
+
+		out.append(NEW_LINE);
+		out.flush();
+		out.append("--").append(boundary).append("--").append(NEW_LINE);
 	}
 }
