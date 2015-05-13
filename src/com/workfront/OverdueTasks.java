@@ -39,9 +39,9 @@ public class OverdueTasks {
 
         try {
 
-//            Keeping here for example of how to login with username/password
-//            client = new StreamClient(WORKFRONT_URL_V4);
-//            client.login(USERNAME, PASSWORD);
+            //            Keeping here for example of how to login with username/password
+            //            client = new StreamClient(WORKFRONT_URL_V4);
+            //            client.login(USERNAME, PASSWORD);
 
             // Login using API Key
             client = new StreamClient(WORKFRONT_URL_V4, API_KEY);
@@ -52,7 +52,7 @@ public class OverdueTasks {
             JSONArray projectList = client.search("project", search);
 
             // for each of the projects in the program
-            for(int i=0;i<projectList.length();i++) {
+            for (int i = 0; i < projectList.length(); i++) {
 
                 JSONObject project = projectList.getJSONObject(i);
 

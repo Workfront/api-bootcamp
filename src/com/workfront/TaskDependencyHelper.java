@@ -45,16 +45,16 @@ public class TaskDependencyHelper {
 			// * We don't care about completed work.  This keeps us from getting really slow over time as more work is done.
 			// * We are using a primary key to reduce the set significantly with projectID
 			// * We are only looking at stories with the custom form we need and a team already assigned
-			Map<String, Object> search = new HashMap<>();
+			Map<String, Object> search = new HashMap<String, Object>();
 			search.put("projectID", DEVELOPMENT_PRODUCT_BACKLOG_ID);
 			search.put("statusEquatesWith", "CPL");
 			search.put("statusEquatesWith_Mod", "ne");
 			search.put("categoryID", STORY_CATEGORY_ID);
 			search.put("teamID_Mod", "notnull");
 
-			JSONArray stories = client.search("TASK", search, new HashSet<>(Arrays.asList("teamID")));
+			JSONArray stories = client.search("TASK", search, new HashSet<String>(Arrays.asList("teamID")));
 
-			Map<String, JSONObject> storiesByID = new HashMap<>();
+			Map<String, JSONObject> storiesByID = new HashMap<String, JSONObject>();
 			for (int i = 0; i < stories.length(); i++) {
 				JSONObject story = stories.getJSONObject(i);
 
@@ -68,19 +68,19 @@ public class TaskDependencyHelper {
 			search.put("parentID", storiesByID.keySet().toArray(new String[storiesByID.keySet().size()]));
 			search.put("$$LIMIT", 2000);
 
-			JSONArray children = client.search("TASK", search, new HashSet<>(Arrays.asList("parentID")));
+			JSONArray children = client.search("TASK", search, new HashSet<String>(Arrays.asList("parentID")));
 
 			//We are putting these all in memory because we plan on the set being reasonable.  Should we
 			//know that the set will tend to be very large, we might get children on pages of parent tasks
 			//each time instead.  These are all considerations to be made during planning and development
 			//based on typical workflow.
-			Map<String, List<JSONObject>> childrenByParentID = new HashMap<>();
+			Map<String, List<JSONObject>> childrenByParentID = new HashMap<String, List<JSONObject>>();
 			for (int i = 0; i < children.length(); i++) {
 				JSONObject child = children.getJSONObject(i);
 
 				List<JSONObject> siblings = childrenByParentID.get(child.getString("parentID"));
 				if (siblings == null) {
-					siblings = new ArrayList<>();
+					siblings = new ArrayList<JSONObject>();
 					childrenByParentID.put(child.getString("parentID"), siblings);
 				}
 
@@ -130,7 +130,7 @@ public class TaskDependencyHelper {
 	private static void createChild(StreamClient client, String parentID, String name, String teamID)
 		throws StreamClientException {
 
-		Map<String, Object> message = new HashMap<>();
+		Map<String, Object> message = new HashMap<String, Object>();
 		message.put("projectID", DEVELOPMENT_PRODUCT_BACKLOG_ID);
 		message.put("parentID", parentID);
 		message.put("name", name);
