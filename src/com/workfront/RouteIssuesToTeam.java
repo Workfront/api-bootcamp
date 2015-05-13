@@ -54,14 +54,14 @@ public class RouteIssuesToTeam {
 			//find all issues with our category - we want to narrow the scope to the project these issues land on
 			//as well as issues that are not already resolved by a task.
 			//This should perform well because we have used 2 primary keys (IDs) even as our data grows.
-			Map<String, Object> search = new HashMap<>();
+			Map<String, Object> search = new HashMap<String, Object>();
 			search.put("projectID", WORKSTATION_REQUESTS_ID);
 			search.put("categoryID", SOFTWARE_TICKET_CATEGORY_ID);
 			search.put("resolvingObjID_Mod", "isnull");
 
 			//We will need to fetch the fields we want to copy in this search like the description
 			JSONArray issues = client.search("OPTASK", search,
-					new HashSet<>(Arrays.asList("parameterValues", "description")));
+					new HashSet<String>(Arrays.asList("parameterValues", "description")));
 
 			for (int i = 0; i < issues.length(); i++) {
 				JSONObject issue = issues.getJSONObject(i);
@@ -77,7 +77,7 @@ public class RouteIssuesToTeam {
 
 					//Since there is no endpoint to convert an issue to a task, we'll just create a task on the
 					//project in question and copy over the most important data
-					Map<String, Object> message = new HashMap<>();
+					Map<String, Object> message = new HashMap<String, Object>();
 					message.put("projectID", DEVELOPMENT_PRODUCT_BACKLOG_ID);
 					message.put("name", issue.get("name"));
 					message.put("description", issue.get("description"));
