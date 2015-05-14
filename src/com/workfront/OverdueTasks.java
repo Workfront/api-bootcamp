@@ -29,7 +29,6 @@ public class OverdueTasks {
     static final String API_KEY = "r44o0uldiz5ub9u4af6ieymkxfruuepi";
 
     static final String DEV_PROGRAM_ID = "5550f476000176606f6de06eb1f09365";
-    static final String PLANNED_COMPLETION_DATE = "plannedCompletionDate";
     static final String OVERDUE_MESSAGE = "Hello, just letting you know that this task is now overdue.";
 
     /**
