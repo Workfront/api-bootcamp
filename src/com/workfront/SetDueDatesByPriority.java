@@ -25,7 +25,6 @@ import java.util.*;
 
 public class SetDueDatesByPriority {
 
-
 	static final String WORKFRONT_URL_V4 = "https://leapco.attask-ondemand.com/attask/api/v4.0";
 	static final String API_KEY = "r44o0uldiz5ub9u4af6ieymkxfruuepi";
 
@@ -88,6 +87,7 @@ public class SetDueDatesByPriority {
 					calendar.setTime(df.parse(issue.get("entryDate").toString()));
 
 					switch (priority) {
+
 						case NONE:
 							// "None": Add an update asking for priority to be set
 							// Only add update a minimum of every 7 days
@@ -134,6 +134,7 @@ public class SetDueDatesByPriority {
 							message.put("plannedCompletionDate", df.format(calendar.getTime()));
 							client.put("OPTASK", issue.get("ID").toString(), message);
 							break;
+
 						default:
 							break;
 					}
