@@ -30,9 +30,10 @@ public class DocumentMover {
 	 *
 	 * 1. Setup a root "input" directory that contains 3 children: project, task and issue
 	 * 2. When a directory is found under any of these children that looks like an ID (32 characters [0-9a-f])
-	 *    attempt to upload any files in the directory to the corresponding object
+	 * attempt to upload any files in the directory to the corresponding object
 	 * 3. If the object cannot be found, move the document to a corresponding folder structure under a "failures" directory
-	 * 4. If a file is uploaded correctly to the object, move it to a "complete" directory with the same folder structure
+	 * 4. If a file is uploaded correctly to the object, update the object with a message saying the document was automatically
+	 *    added and move it to a "complete" directory with the same folder structure
 	 *
 	 * @param args
 	 */
