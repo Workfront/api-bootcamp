@@ -89,7 +89,6 @@ public class SetDueDatesByPriority {
 					calendar.setTime(df.parse(issue.get("entryDate").toString()));
 
 					switch (priority) {
-
 						case NONE:
 							// "None": Add an update asking for priority to be set
 							// Only allow code to add an entry to the update stream once a week
@@ -104,7 +103,6 @@ public class SetDueDatesByPriority {
 								System.out.println("Update:  " + newUpdate.toString());
 							}
 							break;
-
 						case LOW:
 							// "Low": 2 weeks after the creation date
 							calendar.add(Calendar.DATE, 14);
@@ -112,7 +110,6 @@ public class SetDueDatesByPriority {
 							message.put("plannedCompletionDate", df.format(calendar.getTime()));
 							client.put("OPTASK", issue.get("ID").toString(), message);
 							break;
-
 						case NORMAL:
 							// "Normal": 1 week after the creation date
 							calendar.add(Calendar.DATE, 7);
@@ -120,7 +117,6 @@ public class SetDueDatesByPriority {
 							message.put("plannedCompletionDate", df.format(calendar.getTime()));
 							client.put("OPTASK", issue.get("ID").toString(), message);
 							break;
-
 						case HIGH:
 							// "High":	3 days after the creation date
 							calendar.add(Calendar.DATE, 3);
@@ -128,7 +124,6 @@ public class SetDueDatesByPriority {
 							message.put("plannedCompletionDate", df.format(calendar.getTime()));
 							client.put("OPTASK", issue.get("ID").toString(), message);
 							break;
-
 						case URGENT:
 							// "Urgent": 1 day after the creation date
 							calendar.add(Calendar.DATE, 1);
@@ -136,7 +131,6 @@ public class SetDueDatesByPriority {
 							message.put("plannedCompletionDate", df.format(calendar.getTime()));
 							client.put("OPTASK", issue.get("ID").toString(), message);
 							break;
-
 						default:
 							break;
 					}
