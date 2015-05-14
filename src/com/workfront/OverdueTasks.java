@@ -69,6 +69,7 @@ public class OverdueTasks {
                 JSONObject project = projectList.getJSONObject(i);
 
                 // Get a list of all tasks for the specified project
+                // Filter search for tasks where the current date is past the planned completion date (overdue)
                 String[] taskFields = {"ID", "assignedToID", "plannedCompletionDate"};
                 search.clear();
                 search.put("projectID", project.get("ID").toString());
@@ -76,24 +77,20 @@ public class OverdueTasks {
                 search.put("plannedCompletionDate_Mod", "lte");
                 JSONArray taskList = client.search("task", search, taskFields);
 
-                // Iterate through each task and check to see if the task is overdue or not
+                // Iterate through each task and add update as needed to manager.
                 for (int j = 0; j < taskList.length(); j++) {
 
                     JSONObject task = taskList.getJSONObject(j);
 
+                    // Find the number of days between the planned completion date and NOW
                     Calendar calendar = Calendar.getInstance();
                     calendar.setTime(df.parse(task.get("plannedCompletionDate").toString()));
-
                     int days = daysBetween(calendar.getTime(), Calendar.getInstance().getTime());
+
+                    // Prevent updates from posting to a update feed more that once a week. To accomplish this I will
+                    // check to see when a tasks plannedCompletion date was and then only update the thread every 7 days
+                    // from that date.
                     if (days % 7 == 0) {
-
-                        // Get planned completion date of the task
-                        // Example Date Format - '2015-05-11T09:00:00:000-0600'
-                        Calendar taskPlanCompletionDate = Calendar.getInstance();
-                        taskPlanCompletionDate.setTime(df.parse(task.get(PLANNED_COMPLETION_DATE).toString()));
-
-                        // Get the time now
-                        Calendar now = Calendar.getInstance();
 
                         // Create overdue note to post on update stream
                         Map<String, Object> message = new HashMap<String, Object>();
@@ -118,7 +115,7 @@ public class OverdueTasks {
                             }
                         }
 
-                        // Create the new note
+                        // Create the new note (even if not tagging manager)
                         JSONObject newUpdate = client.post("NOTE", new HashMap<String, Object>(), message, null);
                         System.out.println(newUpdate.toString());
                     }
