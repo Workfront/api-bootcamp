@@ -43,7 +43,7 @@ public class TaskDependencyHelper {
 	 *
 	 * 1. When a task on the Development Product Backlog has the custom form "Story" selected and is assigned
 	 *    to an agile team, ensure the following subtasks exist and are assigned to the same team as the story:
-	 *    	"Technical Approach", "UX Design", "QA Test Map"
+	 *      "Technical Approach", "UX Design", "QA Test Map"
 	 *
 	 * @param args
 	 */
