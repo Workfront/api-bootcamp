@@ -49,7 +49,7 @@ public class RouteIssuesToTeam {
 	 *
 	 * In workfront
 	 * 1. Create a custom field named "Product Area" that has the following values and add it to a form:
-	 *              "User Management", "Calendars", "Document Management", "All The Rest"
+	 * 		"User Management", "Calendars", "Document Management", "All The Rest"
 	 * 2. Either alter an existing request queue or create a new request queue to take this new value as an option.
 	 *
 	 * In this class
