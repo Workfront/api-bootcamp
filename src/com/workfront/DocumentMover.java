@@ -4,8 +4,7 @@ package com.workfront;
 import com.workfront.api.*;
 
 import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.lang.Object;
 
 import org.json.JSONObject;
@@ -29,13 +28,22 @@ import org.json.JSONObject;
 
 public class DocumentMover {
 
-		//All of these will depend on the environment
+	//All of these will depend on the environment
 	public static final String WORKFRONT_URL_V4 = "https://leapco.attask-ondemand.com/attask/api/v4.0";
 	public static final String API_KEY = "r44o0uldiz5ub9u4af6ieymkxfruuepi";
 	public static final String DIRECTORY = "PATH_TO_MAIN_DIRECTORY";
 	public static final String DIRECTORY_COMPLETE = "PATH_TO_COMPLETE_DIRECTORY";
 	public static final String DIRECTORY_FAILED = "PATH_TO_FAILED_DIRECTORY";
-	
+	public static final Map<String, String> DIRECTORY_TO_OBJCODE;
+
+	static {
+		Map<String, String> directoryToObjCode = new HashMap<String, String>();
+		directoryToObjCode.put("Issue", "OPTASK");
+		directoryToObjCode.put("Task", "TASK");
+		directoryToObjCode.put("Project", "PROJ");
+
+		DIRECTORY_TO_OBJCODE = Collections.unmodifiableMap(directoryToObjCode);
+	}
 
 	/**
 	 * The purpose of this class is to automate the entry of documents from another system into workfront.  When
@@ -48,110 +56,76 @@ public class DocumentMover {
 	 *
 	 * 1. Setup a root "input" directory that contains 3 children: project, task and issue
 	 * 2. When a directory is found under any of these children that looks like an ID (32 characters [0-9a-f])
-	 *    attempt to upload any files in the directory to the corresponding object
+	 * attempt to upload any files in the directory to the corresponding object
 	 * 3. If the object cannot be found, move the document to a corresponding folder structure under a "failures" directory
-	 * 4. If a file is uploaded correctly to the object, move it to a "complete" directory with the same folder structure
+	 * 4. If a file is uploaded correctly to the object, update the object with a message saying the document was automatically
+	 *    added and move it to a "complete" directory with the same folder structure
 	 *
 	 * @param args
 	 */
 	public static void main(String[] args) {
-			try {
-				//Create client Instance
-				StreamClient client = new StreamClient(WORKFRONT_URL_V4, API_KEY);
-				//Searches Issue directory for files and list files
-				File path = new File(DIRECTORY+"/Issue");
-				File[] files = path.listFiles();
-				
-						//Cycles through each file			
-				        for(File file:files)
-				         {
-				        	//Remove file extension to get ID of issue to search
-				        	String fileName = file.getName();
-				        	String ID = fileName.substring(0, fileName.lastIndexOf('.'));
-				        	try {
-				        		//Check if Issue exists if it does continue
-				        		client.get("Issue", ID);
-				        		//Gets Handle for upload
-					        	JSONObject results = client.upload(file);
-					        	//Builds Map for POST
-					        	Map<String, Object> message = new HashMap<String, Object>();
-					        	message.put("objID" , ID);
-					        	message.put( "docObjCode" , "OPTASK");
-					        	message.put("handle", results.get("handle"));
-					        	message.put("name", file);
-					        	//Final post to upload document to Workfront
-					        	client.post("document", message);
-					        	//Move file to Complete directory
-					        	file.renameTo(new File(DIRECTORY_COMPLETE+fileName));
-				        	}catch(Exception f){
-				        		file.renameTo(new File(DIRECTORY_FAILED+fileName));
-				        	}
+		try {
+			//Create client Instance
+			StreamClient client = new StreamClient(WORKFRONT_URL_V4, API_KEY);
 
-				         }
+			//Iterate over directories and move files
+			for (Map.Entry<String, String> entry : DIRECTORY_TO_OBJCODE.entrySet()) {
 
-			    //Searches Task directory for files and list files
-				path = new File(DIRECTORY+"/Task");
-				files = path.listFiles();
-					
-						//Cycles through each File			
-				        for(File file:files)
-				         {
-				        	//Remove file extension to get ID of Task to search
-				        	String fileName = file.getName();
-				        	String ID = fileName.substring(0, fileName.lastIndexOf('.'));
-				        	try {
-				        		//Check if Task exists if it does continue
-				        		client.get("Task", ID);
-				        		//Gets Handle for upload
-					        	JSONObject results = client.upload(file);
-					        	//Builds Map for POST
-					        	Map<String, Object> message = new HashMap<String, Object>();
-					        	message.put("objID" , ID);
-					        	message.put( "docObjCode" , "TASK");
-					        	message.put("handle", results.get("handle"));
-					        	message.put("name", file);
-					        	//Final post to upload document to Workfront
-					        	client.post("document", message);
-					        	//Move file to Complete directory
-					        	file.renameTo(new File(DIRECTORY_COMPLETE+fileName));
-				        	}catch(Exception f){
-				        		//If Task does not exsist move to failed directory
-				        		file.renameTo(new File(DIRECTORY_FAILED+fileName));
-				        	}
-				         }			
-					        
-						      //Searches Project directory for files and list files
-						path = new File(DIRECTORY+"/Project");
-						files = path.listFiles();
-							
-								//Cycles through each file			
-						        for(File file:files)
-						         {
-						        	//Remove file extension to get ID of issue to search
-						        	String fileName = file.getName();
-						        	String ID = fileName.substring(0, fileName.lastIndexOf('.'));
-						        	try {
-						        		//Check if Issue exists if it does continue
-						        		client.get("Proj", ID);
-						        		//Gets Handle for upload
-							        	JSONObject results = client.upload(file);
-							        	//Builds Map for POST
-							        	Map<String, Object> message = new HashMap<String, Object>();
-							        	message.put("objID" , ID);
-							        	message.put( "docObjCode" , "PROJ");
-							        	message.put("handle", results.get("handle"));
-							        	message.put("name", file);
-							        	//Final post to upload document to Workfront
-							        	client.post("document", message);
-							        	//Move file to Complete directory
-								        file.renameTo(new File(DIRECTORY_COMPLETE+fileName));
-						        	}catch(Exception f){
-						        		file.renameTo(new File(DIRECTORY_FAILED+fileName));
-						        		}
-						         }							        
-				        
-				}catch (Exception e) {
-					e.printStackTrace();
+				//Searches Object directory for files and list files, eg: /root/Issue
+				File objectDirectory = new File(DIRECTORY + "/" + entry.getKey());
+
+				if (objectDirectory.exists()) {
+					//Cycles through each file
+					for (File subdirectory : objectDirectory.listFiles()) {
+						String objID = subdirectory.getName();
+
+						//Check that this directory looks like a GUID, eg: /root/Issue/55540a5e0009472b9485da4324bec42b
+						if (subdirectory.isDirectory() && objID.matches("^[0-9A-Fa-f]{32}$")) {
+
+							//go through the files in this directory and attempt to add them to the object
+							for (File file : subdirectory.listFiles()) {
+								try {
+									//Check if object exists if it does continue... this is cheaper than
+									//uploading a file only to find out we can't attach it to anything
+									client.get(entry.getKey(), objID);
+
+									//Gets Handle for upload
+									JSONObject results = client.upload(file);
+
+									//Builds Map for POST
+									Map<String, Object> message = new HashMap<String, Object>();
+									message.put("objID", objID);
+									message.put("docObjCode", entry.getValue());
+									message.put("handle", results.get("handle"));
+									message.put("name", file.getName());
+
+									//Final post to upload document to Workfront
+									client.post("document", message);
+
+									//Post a note about the new document
+									message.clear();
+									message.put("noteText", "Automatically uploaded file: " + file.getName());
+									message.put("objID", objID);
+									message.put("noteObjCode", entry.getValue());
+
+									client.post("NOTE", message);
+
+									//Move file to Complete directory
+									File completeDir = new File(DIRECTORY_COMPLETE + "/" + entry.getKey() + "/" + subdirectory.getName());
+									completeDir.mkdirs();
+									file.renameTo(new File(completeDir, file.getName()));
+								} catch (StreamClientException f) {
+									File errorDir = new File(DIRECTORY_FAILED + "/" + entry.getKey() + "/" + subdirectory.getName());
+									errorDir.mkdirs();
+									file.renameTo(new File(errorDir, file.getName()));
+								}
+							}
+						}
+					}
 				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 }
