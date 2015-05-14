@@ -70,7 +70,7 @@ public class SetDueDatesByPriority {
 			JSONObject project = client.get("PROJ", OVERDUE_ISSUE_PROJECT_ID);
 
 			// Search for all issues found in this project
-			String[] issueFields = {"ID", "priority", "entryDate", "dueDate"};
+			String[] issueFields = {"ID", "priority", "entryDate"};
 			Map<String, Object> search = new HashMap<String, Object>();
 			search.put("projectID", project.get("ID").toString());
 			// TODO: Add into the search to only get issues that are NOT marked as complete
@@ -90,7 +90,7 @@ public class SetDueDatesByPriority {
 
 						case NONE:
 							// "None": Add an update asking for priority to be set
-							// Only add update a minimum of every 7 days
+							// Only allow to add an entry to the update stream once a week
 							int days = daysBetween(calendar.getTime(), Calendar.getInstance().getTime());
 							if (days % 7 == 0) {
 								message.clear();

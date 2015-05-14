@@ -51,9 +51,9 @@ public class OverdueTasks {
 
         try {
 
-            //            Keeping here for example of how to login with username/password
-            //            client = new StreamClient(WORKFRONT_URL_V4);
-            //            client.login(USERNAME, PASSWORD);
+            // Example usine 'username/password'
+            // client = new StreamClient(WORKFRONT_URL_V4);
+            // client.login(USERNAME, PASSWORD);
 
             // Login using API Key
             client = new StreamClient(WORKFRONT_URL_V4, API_KEY);
@@ -72,7 +72,8 @@ public class OverdueTasks {
                 String[] taskFields = {"ID", "assignedToID", "plannedCompletionDate"};
                 search.clear();
                 search.put("projectID", project.get("ID").toString());
-                // TODO: Add the overdue date query in the search instead of checking if older below
+                search.put("plannedCompletionDate", "$$TODAY");
+                search.put("plannedCompletionDate_Mod", "lte");
                 JSONArray taskList = client.search("task", search, taskFields);
 
                 // Iterate through each task and check to see if the task is overdue or not
@@ -80,19 +81,19 @@ public class OverdueTasks {
 
                     JSONObject task = taskList.getJSONObject(j);
 
-                    // Get planned completion date of the task
-                    // Example Date Format - '2015-05-11T09:00:00:000-0600'
-                    Calendar taskPlanCompletionDate = Calendar.getInstance();
-                    taskPlanCompletionDate.setTime(df.parse(task.get(PLANNED_COMPLETION_DATE).toString()));
+                    Calendar calendar = Calendar.getInstance();
+                    calendar.setTime(df.parse(task.get("plannedCompletionDate").toString()));
 
-                    // Get the time now
-                    Calendar now = Calendar.getInstance();
+                    int days = daysBetween(calendar.getTime(), Calendar.getInstance().getTime());
+                    if (days % 7 == 0) {
 
-                    // If the task is past due, then send a message to the assigned users manager
-                    if (now.after(taskPlanCompletionDate)) {
+                        // Get planned completion date of the task
+                        // Example Date Format - '2015-05-11T09:00:00:000-0600'
+                        Calendar taskPlanCompletionDate = Calendar.getInstance();
+                        taskPlanCompletionDate.setTime(df.parse(task.get(PLANNED_COMPLETION_DATE).toString()));
 
-                        // TODO: Only notify the manager every week. Since this will run on the daily timer we can just get the number
-                        // TODO: of days that the task is overdue and if it is a mod of 7 then we can add the update to the stream
+                        // Get the time now
+                        Calendar now = Calendar.getInstance();
 
                         // Create overdue note to post on update stream
                         Map<String, Object> message = new HashMap<String, Object>();
@@ -102,7 +103,7 @@ public class OverdueTasks {
                         message.put("topObjID", task.get("ID"));
 
                         // Get the assigned to users manager so they can be tagged to the note
-                        if (task.has("assignedToID")) {
+                        if (task.has("assignedToID") && !task.get("assignedToID").equals(null)) {
                             String[] userFields = {"ID", "managerID"};
                             JSONObject user = client.get("USER", task.get("assignedToID").toString(), userFields);
 
@@ -119,6 +120,7 @@ public class OverdueTasks {
 
                         // Create the new note
                         JSONObject newUpdate = client.post("NOTE", new HashMap<String, Object>(), message, null);
+                        System.out.println(newUpdate.toString());
                     }
                 }
             }
@@ -126,9 +128,12 @@ public class OverdueTasks {
             e.printStackTrace();
         } finally {
             if (client != null) {
-                // TODO: Not sure if we have to logout or not ... but this seems like the righ place if we have to
                 client.logout();
             }
         }
+    }
+
+    public static int daysBetween(Date d1, Date d2) {
+        return (int) ((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
     }
 }
