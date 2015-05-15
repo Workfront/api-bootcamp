@@ -26,20 +26,20 @@ import java.util.*;
 public class OverdueTasks {
 
     static final String WORKFRONT_URL_V4 = "https://leapco.attask-ondemand.com/attask/api/v4.0";
-    static final String API_KEY = "r44o0uldiz5ub9u4af6ieymkxfruuepi";
+    static final String API_KEY = "p4wromjqf77bmotug7t8l8zai9srk7jm";
 
     static final String DEV_PROGRAM_ID = "5550f476000176606f6de06eb1f09365";
     static final String OVERDUE_MESSAGE = "Hello, just letting you know that this task is now overdue.";
 
     /**
      * The purpose of this class is to find tasks within a certain program that are overdue and
-     * notify the proper [manager] via the update stream.  It is intended to run nightly so knowing that it
+     * notify the proper manager via the update stream.  It is intended to run nightly so knowing that it
      * did not complete by the date specified on the task should be sufficient.  It would not be a good
-     * idea to bother the [manager] every night, however.  Weekly should be sufficient.
+     * idea to bother the manager every night, however.  Weekly should be sufficient.
      *
      * So to recap, the requirements are:
-     * 1. Find tasks under the [FIND ME] program that are overdue
-     * 2. If the task has not been updated with a notice to the [manager] in the past 7 days, post an update warning the manager
+     * 1. Find all tasks under a program that are overdue
+     * 2. If the task has not been updated with a notice to the manager in the past 7 days, post an update warning the manager
      *
      * @param args
      */
@@ -50,86 +50,66 @@ public class OverdueTasks {
 
         try {
 
-            // Example usine 'username/password'
-            // client = new StreamClient(WORKFRONT_URL_V4);
-            // client.login(USERNAME, PASSWORD);
-
             // Login using API Key
             client = new StreamClient(WORKFRONT_URL_V4, API_KEY);
 
-            // Get a list of all projects in the specified program
+            // Get a list of all tasks for the specified program
+            // Filter search for tasks where the current date is past the planned completion date or commit date (overdue)
+            String[] taskFields = {"assignedTo:managerID"};
             Map<String, Object> search = new HashMap<String, Object>();
-            search.put("programID", DEV_PROGRAM_ID);
-            JSONArray projectList = client.search("project", search);
+            search.clear();
+            search.put("OR:A:projectProgramID", DEV_PROGRAM_ID);
+            search.put("OR:A:plannedCompletionDate", "$$TODAY");
+            search.put("OR:A:plannedCompletionDate_Mod", "lte");
+            search.put("OR:B:projectProgramID", DEV_PROGRAM_ID);
+            search.put("OR:B:commitDate", "$$TODAY");
+            search.put("OR:B:commitDate_Mod", "lte");
+            JSONArray taskList = client.search("task", search, taskFields);
 
-            // for each of the projects in the program
-            for (int i = 0; i < projectList.length(); i++) {
+            // Iterate through each task and add update as needed to manager.
+            for (int j = 0; j < taskList.length(); j++) {
 
-                JSONObject project = projectList.getJSONObject(i);
+                JSONObject task = taskList.getJSONObject(j);
 
-                // Get a list of all tasks for the specified project
-                // Filter search for tasks where the current date is past the planned completion date (overdue)
-                String[] taskFields = {"ID", "assignedToID", "plannedCompletionDate"};
+                //Check to see if we have entered a note already for this task in the past week
                 search.clear();
-                search.put("projectID", project.get("ID").toString());
-                search.put("plannedCompletionDate", "$$TODAY");
-                search.put("plannedCompletionDate_Mod", "lte");
-                JSONArray taskList = client.search("task", search, taskFields);
+                search.put("taskID", task.get("ID"));
+                search.put("ownerID", "$$USER.ID");
+                search.put("entryDate", "$$TODAY-7d");
+                search.put("entryDate_Mod", "gte");
 
-                // Iterate through each task and add update as needed to manager.
-                for (int j = 0; j < taskList.length(); j++) {
+                JSONArray warnings = client.search("NOTE", search);
 
-                    JSONObject task = taskList.getJSONObject(j);
+                //warn if we haven't recently
+                if (warnings.length() == 0) {
 
-                    // Find the number of days between the planned completion date and NOW
-                    Calendar calendar = Calendar.getInstance();
-                    calendar.setTime(df.parse(task.get("plannedCompletionDate").toString()));
-                    int days = daysBetween(calendar.getTime(), Calendar.getInstance().getTime());
+                    // Create overdue note to post on update stream
+                    Map<String, Object> message = new HashMap<String, Object>();
+                    message.put("noteText", OVERDUE_MESSAGE);
+                    message.put("taskID", task.get("ID"));
+                    message.put("topNoteObjCode", "TASK");
+                    message.put("topObjID", task.get("ID"));
 
-                    // Prevent updates from posting to a update feed more that once a week. To accomplish this I will
-                    // check to see when a tasks plannedCompletion date was and then only update the thread every 7 days
-                    // from that date.
-                    if (days % 7 == 0) {
+                    // Get the assigned to users manager so they can be tagged to the note
+                    if (task.has("assignedTo") && !task.get("assignedTo").equals(null)) {
+                        JSONObject assignedTo = (JSONObject) task.get("assignedTo");
 
-                        // Create overdue note to post on update stream
-                        Map<String, Object> message = new HashMap<String, Object>();
-                        message.put("noteText", OVERDUE_MESSAGE);
-                        message.put("taskID", task.get("ID"));
-                        message.put("topNoteObjCode", "TASK");
-                        message.put("topObjID", task.get("ID"));
-
-                        // Get the assigned to users manager so they can be tagged to the note
-                        if (task.has("assignedToID") && !task.get("assignedToID").equals(null)) {
-                            String[] userFields = {"ID", "managerID"};
-                            JSONObject user = client.get("USER", task.get("assignedToID").toString(), userFields);
-
-                            // Tag user if they have a defined manager
-                            if (user.has("managerID")) {
-                                List<JSONObject> tags = new ArrayList<JSONObject>();
-                                JSONObject noteTag = new JSONObject();
-                                noteTag.put("objID", user.get("managerID").toString());
-                                noteTag.put("objObjCode", "USER");
-                                tags.add(noteTag);
-                                message.put("tags", new JSONArray(tags));
-                            }
+                        // Tag user if they have a defined manager
+                        if (assignedTo.has("managerID") && !assignedTo.get("managerID").equals(null)) {
+                            JSONObject noteTag = new JSONObject();
+                            noteTag.put("objID", assignedTo.getString("managerID"));
+                            noteTag.put("objObjCode", "USER");
+                            message.put("tags", new JSONArray(Arrays.asList(noteTag)));
                         }
-
-                        // Create the new note (even if not tagging manager)
-                        JSONObject newUpdate = client.post("NOTE", new HashMap<String, Object>(), message, null);
-                        System.out.println(newUpdate.toString());
                     }
+
+                    // Create the new note (even if not tagging manager)
+                    JSONObject newUpdate = client.post("NOTE", new HashMap<String, Object>(), message, null);
+                    System.out.println(newUpdate.toString());
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
-        } finally {
-            if (client != null) {
-                client.logout();
-            }
         }
-    }
-
-    public static int daysBetween(Date d1, Date d2) {
-        return (int) ((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
     }
 }
