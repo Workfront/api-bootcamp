@@ -71,11 +71,10 @@ public class SetDueDatesByPriority {
 
 			// Search for all issues found in this project
 			// Filter out anything that is currently closed
-			String[] issueFields = {"ID", "priority", "entryDate", "status"};
+			String[] issueFields = {"priority", "entryDate"};
 			Map<String, Object> search = new HashMap<String, Object>();
 			search.put("projectID", project.get("ID").toString());
-			search.put("status", "CLS");
-			search.put("status_Mod", "ne");
+			search.put("statusEquatesWith", new String[] {"INP", "OHN", "NEW"});
 			JSONArray issueList = client.search("OPTASK", search, issueFields);
 
 			for (int i = 0; i < issueList.length(); i++) {
@@ -87,6 +86,7 @@ public class SetDueDatesByPriority {
 					int priority = Integer.parseInt(issue.get("priority").toString());
 					Calendar calendar = Calendar.getInstance();
 					calendar.setTime(df.parse(issue.get("entryDate").toString()));
+					String issueID = issue.getString("ID");
 
 					switch (priority) {
 						case NONE:
@@ -96,9 +96,9 @@ public class SetDueDatesByPriority {
 							if (days % 7 == 0) {
 								message.clear();
 								message.put("noteText", SET_PRIORITY_MESSAGE);
-								message.put("opTaskID", issue.get("ID"));
+								message.put("opTaskID", issueID);
 								message.put("topNoteObjCode", "OPTASK");
-								message.put("topObjID", issue.get("ID"));
+								message.put("topObjID", issueID);
 								JSONObject newUpdate = client.post("NOTE", new HashMap<String, Object>(), message, null);
 								System.out.println("Update:  " + newUpdate.toString());
 							}
@@ -108,28 +108,28 @@ public class SetDueDatesByPriority {
 							calendar.add(Calendar.DATE, 14);
 							message.clear();
 							message.put("plannedCompletionDate", df.format(calendar.getTime()));
-							client.put("OPTASK", issue.get("ID").toString(), message);
+							client.put("OPTASK", issueID, message);
 							break;
 						case NORMAL:
 							// "Normal": 1 week after the creation date
 							calendar.add(Calendar.DATE, 7);
 							message.clear();
 							message.put("plannedCompletionDate", df.format(calendar.getTime()));
-							client.put("OPTASK", issue.get("ID").toString(), message);
+							client.put("OPTASK", issueID, message);
 							break;
 						case HIGH:
 							// "High":	3 days after the creation date
 							calendar.add(Calendar.DATE, 3);
 							message.clear();
 							message.put("plannedCompletionDate", df.format(calendar.getTime()));
-							client.put("OPTASK", issue.get("ID").toString(), message);
+							client.put("OPTASK", issueID, message);
 							break;
 						case URGENT:
 							// "Urgent": 1 day after the creation date
 							calendar.add(Calendar.DATE, 1);
 							message.clear();
 							message.put("plannedCompletionDate", df.format(calendar.getTime()));
-							client.put("OPTASK", issue.get("ID").toString(), message);
+							client.put("OPTASK", issueID, message);
 							break;
 						default:
 							break;
