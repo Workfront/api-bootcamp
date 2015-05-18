@@ -49,7 +49,7 @@ public class RouteIssuesToTeam {
 	 *
 	 * In workfront
 	 * 1. Create a custom field named "Product Area" that has the following values and add it to a form:
-	 * 		"User Management", "Calendars", "Document Management", "All The Rest"
+	 *              "User Management", "Calendars", "Document Management", "All The Rest"
 	 * 2. Either alter an existing request queue or create a new request queue to take this new value as an option.
 	 *
 	 * In this class
@@ -57,7 +57,7 @@ public class RouteIssuesToTeam {
 	 *    object and convert them to a task on the "Development Product Backlog" project.
 	 * 4. If the value is "User Management" or "Calendars" or "Document Management", ensure it shows up on the
 	 *    Jedi Council team's backlog.
-	 * 	  If the value is "All The Rest," ensure it shows up on the Gryffindore backlog.
+	 *        If the value is "All The Rest," ensure it shows up on the Gryffindore backlog.
 	 * 5. Update the issue with a message that the work will be done in a task and reference the task ID.
 	 * 6. Set the issue to be resolved by the new Task.
 	 *
